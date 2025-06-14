@@ -32,6 +32,7 @@ df <- dbGetQuery(con, "SELECT * FROM clinical_visits_2")
 # Convert column names to lowercase for easier handling
 df <- df %>% rename_with(tolower)
 
+
 # ------------------------------------------------------------------------------
 # 3. Clean & parse: format gender, remove bad records, parse vitals JSON
 # ------------------------------------------------------------------------------
@@ -60,6 +61,7 @@ df <- df %>%
     age = ifelse(age < 0 | age > 120, NA, age),
     temp = ifelse(temp < 35 | temp > 42, NA, temp)
   )
+
 
 # ------------------------------------------------------------------------------
 # 4. Quick QA: flag missing or suspicious values
@@ -92,7 +94,8 @@ output_dir <- file.path(script_dir, "output")
 
 if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
-
+#Save
+write.csv(df, file.path(output_dir, "cleaned_clinical_visits.csv"), row.names = FALSE)
 write.csv(qa_issues, file.path(output_dir, "qa_issues.csv"), row.names = FALSE)
 write.csv(summary_table, file.path(output_dir, "department_summary.csv"), row.names = FALSE)
 
