@@ -12,15 +12,15 @@ output:
 ---
 
 > **Executive Summary**  
-> This report demonstrates a scalable R-based automation pipeline for extracting, cleaning, validating, and summarising clinical visit data from a Snowflake warehouse. It showcases how structured patient data, including embedded JSON, can be converted into usable insights. The pipeline enhances operational efficiency, supports healthcare research, and ensures high-quality data governance.
+> This report demonstrates a scalable R-based automation pipeline for extracting, cleaning, validating, and summarising clinical visit data from a Snowflake warehouse. It highlights how structured patient data, including embedded JSON, can be transformed into usable insights. This workflow enhances operational efficiency, supports healthcare research, and ensures high-quality data governance.
 
-# 1. Overview
+# 1. Project Overview
 
-This pipeline pulls data from a Snowflake-hosted table (`clinical_visits_2`), parses embedded JSON for vitals, applies QA checks, and produces departmental summaries. The workflow is fully reproducible and securely manages credentials via `keyring`.
+The pipeline pulls data from a Snowflake-hosted table (`clinical_visits_2`), parses nested JSON `vitals`, applies QA checks, and produces department-level summaries and visual insights. All credentials are securely managed via the `keyring` package, and outputs are saved for downstream use or reporting.
 
 ---
 
-# 2. Data Extraction
+# 2. Setup
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
@@ -28,34 +28,39 @@ library(dplyr)
 library(jsonlite)
 library(purrr)
 library(readr)
+library(ggplot2)
 df <- read_csv("output/cleaned_clinical_visits.csv")
 qa_issues <- read_csv("output/qa_issues.csv")
 ```
 
-Data was extracted via ODBC connection and saved as CSV for reproducibility.
+The data was extracted using an ODBC connection and saved as CSVs for reproducibility.
 
 ---
 
-# 3. Data Structure and Parsing
+# 3. Data Structure & Parsing
 
-Each record in the dataset represents a patient visit. The `vitals` column (originally JSON) was parsed into structured `bp` (blood pressure) and `temp` (temperature) columns.
+Each row in the dataset represents a clinical visit. The `vitals` field originally contained a JSON string with multiple readings. This was parsed into structured `bp` (blood pressure) and `temp` (temperature) columns.
 
-```{r, echo=FALSE}
+## Sample Rows
+
+```{r}
 head(df, 5)
 ```
 
 ---
 
-# 4. Validation & QA Checks
+# 4. QA Checks & Validation
 
-The following logic was applied to identify quality issues:
+The following checks were applied:
 
-- Missing `age`, `gender`, `bp`, or `temp`
-- Implausible values: age < 0 or > 120; temp < 35°C or > 42°C
+- Missing values in `age`, `gender`, `bp`, or `temp`
+- Implausible values:  
+  - `age < 0` or `age > 120`  
+  - `temp < 35°C` or `temp > 42°C`
 
-## QA Issue Summary
+## QA Issues by Reason
 
-```{r, echo=TRUE}
+```{r}
 qa_issues %>%
   group_by(reason = case_when(
     is.na(age) ~ "Missing age",
@@ -72,7 +77,9 @@ qa_issues %>%
 
 # 5. Department-Level Summary
 
-```{r, echo=TRUE}
+This summary shows patient distribution across departments and admission rates.
+
+```{r}
 df %>%
   group_by(department, admitted) %>%
   summarise(
@@ -86,11 +93,11 @@ df %>%
 
 ---
 
-# 6. Visual Summary (Optional)
+# 6. Visual Insights
 
-```{r, echo=TRUE, fig.width=6, fig.height=4}
-library(ggplot2)
+## Patient Count by Department
 
+```{r, fig.width=6, fig.height=4}
 ggplot(df, aes(x = department)) +
   geom_bar(fill = "#4e79a7") +
   theme_minimal() +
@@ -98,7 +105,9 @@ ggplot(df, aes(x = department)) +
   labs(title = "Patient Count by Department", x = "Department", y = "Count")
 ```
 
-```{r, echo=TRUE, fig.width=6, fig.height=4}
+## Temperature Distribution
+
+```{r, fig.width=6, fig.height=4}
 ggplot(df, aes(x = temp)) +
   geom_histogram(binwidth = 0.2, fill = "#f28e2b", color = "white") +
   theme_minimal() +
@@ -107,18 +116,32 @@ ggplot(df, aes(x = temp)) +
 
 ---
 
-# 7. Usefulness of This Workflow
+# 7. Observations and Business Relevance
 
 ## Operational Efficiency
-- Automates QA and summary reports from raw visit-level data
-- Reduces human time spent manually filtering or flagging issues
+- Automatically processes raw clinical visit data with minimal manual effort
+- Streamlined JSON parsing and QA allow for scalable report generation
 
-## Clinical & Research Application
-- Enables cohort filtering based on clean and structured vitals
-- Could extend to medication, diagnostics, or genomic data
+## Clinical & Research Value
+- Enables rapid triage or analysis of abnormal patient presentations
+- Clean vitals can feed into downstream models (e.g., risk scoring, alerts)
 
 ## Data Governance
-- Embedded validation improves auditability
-- Secure password management (`keyring`) supports compliance
+- Built-in checks flag bad data early, improving reliability of any decisions
+- Uses secure credential storage (via `keyring`) for GDPR compliance and security
 
+---
+
+# 8. Reproducibility Notes
+
+- This report was generated using a reproducible R pipeline stored in GitHub.
+- Credentials are **not** stored in the script and must be provided via `keyring`.
+- Outputs include:
+  - `cleaned_clinical_visits.csv`
+  - `qa_issues.csv`
+  - `department_summary.csv`
+
+---
+
+> *Developed by David Willsher — showcasing scalable automation for clinical data insight generation.*
 
