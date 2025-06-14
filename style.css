@@ -1,0 +1,28 @@
+/* Body font */
+body {
+  font-family: 'Roboto', Arial, sans-serif;
+  color: #333333;
+}
+
+/* Title styling - serif font in navy */
+h1, h2, h3 {
+  font-family: Georgia, 'Paganini', serif;
+  color: #002051;
+}
+
+/* Accents (links, blockquotes) */
+a, .accent {
+  color: #c36822;
+}
+
+/* Code blocks */
+pre, code {
+  background-color: #f5f5f5;
+  color: #1a1a1a;
+}
+
+/* Table header */
+table th {
+  background-color: #002051;
+  color: white;
+}
