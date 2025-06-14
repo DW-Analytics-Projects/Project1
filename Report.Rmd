@@ -1,0 +1,124 @@
+---
+title: "Clinical Visit Insights"
+author: "David Willsher"
+output:
+  html_document:
+    css: style.css
+    toc: true
+    toc_depth: 2
+    toc_float: true
+    number_sections: true
+    df_print: paged
+---
+
+> **Executive Summary**  
+> This report demonstrates a scalable R-based automation pipeline for extracting, cleaning, validating, and summarising clinical visit data from a Snowflake warehouse. It showcases how structured patient data, including embedded JSON, can be converted into usable insights. The pipeline enhances operational efficiency, supports healthcare research, and ensures high-quality data governance.
+
+# 1. Overview
+
+This pipeline pulls data from a Snowflake-hosted table (`clinical_visits_2`), parses embedded JSON for vitals, applies QA checks, and produces departmental summaries. The workflow is fully reproducible and securely manages credentials via `keyring`.
+
+---
+
+# 2. Data Extraction
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(dplyr)
+library(jsonlite)
+library(purrr)
+library(readr)
+df <- read_csv("output/cleaned_clinical_visits.csv")
+qa_issues <- read_csv("output/qa_issues.csv")
+```
+
+Data was extracted via ODBC connection and saved as CSV for reproducibility.
+
+---
+
+# 3. Data Structure and Parsing
+
+Each record in the dataset represents a patient visit. The `vitals` column (originally JSON) was parsed into structured `bp` (blood pressure) and `temp` (temperature) columns.
+
+```{r, echo=FALSE}
+head(df, 5)
+```
+
+---
+
+# 4. Validation & QA Checks
+
+The following logic was applied to identify quality issues:
+
+- Missing `age`, `gender`, `bp`, or `temp`
+- Implausible values: age < 0 or > 120; temp < 35°C or > 42°C
+
+## QA Issue Summary
+
+```{r, echo=TRUE}
+qa_issues %>%
+  group_by(reason = case_when(
+    is.na(age) ~ "Missing age",
+    is.na(gender) ~ "Missing gender",
+    is.na(bp) ~ "Missing BP",
+    is.na(temp) ~ "Missing temp",
+    TRUE ~ "Other"
+  )) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+```
+
+---
+
+# 5. Department-Level Summary
+
+```{r, echo=TRUE}
+df %>%
+  group_by(department, admitted) %>%
+  summarise(
+    total_patients = n(),
+    avg_age = round(mean(age, na.rm = TRUE), 1),
+    avg_temp = round(mean(temp, na.rm = TRUE), 1),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(total_patients))
+```
+
+---
+
+# 6. Visual Summary (Optional)
+
+```{r, echo=TRUE, fig.width=6, fig.height=4}
+library(ggplot2)
+
+ggplot(df, aes(x = department)) +
+  geom_bar(fill = "#4e79a7") +
+  theme_minimal() +
+  coord_flip() +
+  labs(title = "Patient Count by Department", x = "Department", y = "Count")
+```
+
+```{r, echo=TRUE, fig.width=6, fig.height=4}
+ggplot(df, aes(x = temp)) +
+  geom_histogram(binwidth = 0.2, fill = "#f28e2b", color = "white") +
+  theme_minimal() +
+  labs(title = "Temperature Distribution", x = "Temperature (°C)", y = "Frequency")
+```
+
+---
+
+# 7. Usefulness of This Workflow
+
+## Operational Efficiency
+- Automates QA and summary reports from raw visit-level data
+- Reduces human time spent manually filtering or flagging issues
+
+## Clinical & Research Application
+- Enables cohort filtering based on clean and structured vitals
+- Could extend to medication, diagnostics, or genomic data
+
+## Data Governance
+- Embedded validation improves auditability
+- Secure password management (`keyring`) supports compliance
+
+
